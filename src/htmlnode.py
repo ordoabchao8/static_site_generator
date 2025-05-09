@@ -17,7 +17,10 @@ class HtmlNode:
         return html_props
     
     def __eq__(self, other_node):
-        if self.tag == other_node.tag and self.value == other_node.value and self.children == other_node.children and self.props == other_node.props:
+        if (self.tag == other_node.tag and 
+            self.value == other_node.value and 
+            self.children == other_node.children and 
+            self.props == other_node.props):
             return True
         return False
     
