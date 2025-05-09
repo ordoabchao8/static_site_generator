@@ -1,10 +1,55 @@
 import unittest
 
 from textnode import TextNode, TextType, text_node_to_html_node
-from text_node_functions import split_nodes_delimiter
+from text_node_functions import split_nodes_delimiter, extract_markdown_images, extract_markdown_links, split_nodes_image, split_nodes_link
 
 
 class TestTextNode(unittest.TestCase):
+    # ---- TESTS FOR STANDALONE FUNCTION SPLIT_NODES_LINK
+    def test_split_images(self):
+        node = TextNode(
+            "This is text with an ![image](https://i.imgur.com/zjjcJKZ.png) and another ![second image](https://i.imgur.com/3elNhQu.png)",
+            TextType.TEXT,
+        )
+        new_nodes = split_nodes_image([node])
+        self.assertListEqual(
+            [
+                TextNode("This is text with an ", TextType.TEXT),
+                TextNode("image", TextType.IMAGE, "https://i.imgur.com/zjjcJKZ.png"),
+                TextNode(" and another ", TextType.TEXT),
+                TextNode(
+                    "second image", TextType.IMAGE, "https://i.imgur.com/3elNhQu.png"
+                ),
+            ],
+            new_nodes,
+        )
+    def test_split_links(self):
+        node = TextNode("This is text with a link [to boot dev](https://www.boot.dev) and [to youtube](https://www.youtube.com/@bootdotdev)", TextType.TEXT,)
+        expected_nodes = [
+            TextNode("This is text with a link ", TextType.TEXT),
+            TextNode("to boot dev", "link", "https://www.boot.dev"),
+            TextNode(" and ", "text",),
+            TextNode("to youtube", "link", "https://www.youtube.com/@bootdotdev")
+        ]
+        self.assertEqual(split_nodes_link([node]), expected_nodes)
+        
+            
+    
+    
+    # ---- Test TEXT NODE STANDALONE FUNCTION FOR EXTRACTING MARKDOWN FROM NODES---
+    def test_extract_markdown_images(self):
+        matches = extract_markdown_images(
+        "This is text with an ![image](https://i.imgur.com/zjjcJKZ.png)"
+    )
+        self.assertListEqual([("image", "https://i.imgur.com/zjjcJKZ.png")], matches)
+        
+    def test_extract_markdown_links(self):
+        matches = extract_markdown_links(
+        "This is text with a link [to boot dev](https://www.boot.dev) and [to youtube](https://www.youtube.com/@bootdotdev)"
+    )
+        self.assertListEqual([("to boot dev", "https://www.boot.dev"), ("to youtube", "https://www.youtube.com/@bootdotdev")], matches)
+    
+    
     # ---- Test TEXT NODE STANDALONE FUNCTION FOR CONVERTING MARKDOWN TO TEXTNODES
     def test_text_node_standalone_function_invalid_markdown_delimiter(self):
         node = TextNode("This is text with a `code block word", TextType.TEXT)
@@ -16,7 +61,47 @@ class TestTextNode(unittest.TestCase):
         with self.assertRaises(Exception):
             split_nodes_delimiter([node], "`", TextType.CODE)
     
-    def test_text_node_empty_code_span(self):
+    def test_text_node_standalone_function_test_text_type_vs_other_type(self):
+        node = TextNode("This is text with a `code block` word", TextType.TEXT)
+        node2 = split_nodes_delimiter([node], "`", TextType.CODE)
+        expected_nodes = [
+            TextNode("This is text with a ", TextType.TEXT),
+            TextNode("code block", TextType.CODE),
+            TextNode(" word", TextType.TEXT)
+        ]
+        self.assertEqual(node2, expected_nodes)
+       
+    def test_text_node_standalone_function_bold_delimiter(self):
+        node = TextNode("This is text with a **bold** word", TextType.TEXT)
+        node2 = split_nodes_delimiter([node], "**", TextType.CODE)
+        expected_nodes = [
+            TextNode("This is text with a ", TextType.TEXT),
+            TextNode("bold", TextType.CODE),
+            TextNode(" word", TextType.TEXT)
+        ]
+        self.assertEqual(node2, expected_nodes)
+    
+    def test_text_node_standalone_function_italic_delimiter(self):
+        node = TextNode("This is text with a _italic_ word", TextType.TEXT)
+        node2 = split_nodes_delimiter([node], "_", TextType.CODE)
+        expected_nodes = [
+            TextNode("This is text with a ", TextType.TEXT),
+            TextNode("italic", TextType.CODE),
+            TextNode(" word", TextType.TEXT)
+        ]
+        self.assertEqual(node2, expected_nodes)
+    
+    def test_text_node_standalone_function_code_delimiter(self):
+        node = TextNode("This is text with a `code block` word", TextType.TEXT)
+        node2 = split_nodes_delimiter([node], "`", TextType.CODE)
+        expected_nodes = [
+            TextNode("This is text with a ", TextType.TEXT),
+            TextNode("code block", TextType.CODE),
+            TextNode(" word", TextType.TEXT)
+        ]
+        self.assertEqual(node2, expected_nodes)
+    
+    def test_text_node_standalone_function_empty_code_span(self):
         node = TextNode("This is text with a `` word", TextType.TEXT)
         result = split_nodes_delimiter([node], "`", TextType.CODE)
         # Check there’s an empty code node in the right place
@@ -25,6 +110,8 @@ class TestTextNode(unittest.TestCase):
         self.assertEqual(result[1].text_type, TextType.CODE)
         self.assertEqual(result[2].text, " word")
         self.assertEqual(result[2].text_type, TextType.TEXT)
+        
+        
     
     #---- Test TEXT NODE TO HTML NODE USING standalone function
     def test_text_node_to_html_node_type_text(self):
