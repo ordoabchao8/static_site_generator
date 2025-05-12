@@ -1,12 +1,93 @@
 import unittest
 
 from textnode import TextNode, TextType, text_node_to_html_node
-from text_node_functions import split_nodes_delimiter, extract_markdown_images, extract_markdown_links, split_nodes_image, split_nodes_link
-
+from text_node_functions import split_nodes_delimiter, extract_markdown_images, extract_markdown_links, split_nodes_image, split_nodes_link, text_to_textnodes
+from markdown_blocks import markdown_to_blocks, block_to_block_type, BlockType
 
 class TestTextNode(unittest.TestCase):
+# ---- TEST MARKDOWN BLOCKS BLOCK TO BLOCK TYPE ---
+    def test_block_to_block_types(self):
+        block = "# heading"
+        self.assertEqual(block_to_block_type(block), BlockType.HEADING)
+        block = "```\ncode\n```"
+        self.assertEqual(block_to_block_type(block), BlockType.CODE)
+        block = "> quote\n> more quote"
+        self.assertEqual(block_to_block_type(block), BlockType.QUOTE)
+        block = "- list\n- items"
+        self.assertEqual(block_to_block_type(block), BlockType.ULIST)
+        block = "1. list\n2. items"
+        self.assertEqual(block_to_block_type(block), BlockType.OLIST)
+        block = "paragraph"
+        self.assertEqual(block_to_block_type(block), BlockType.PARAGRAPH)
+    
+
+# ---- TEST MARKDOWN TO BLOCKS STANDALONE FUNCTION --
+    def test_markdown_to_blocks(self):
+        md = """
+This is **bolded** paragraph
+
+This is another paragraph with _italic_ text and `code` here
+This is the same paragraph on a new line
+
+- This is a list
+- with items
+"""
+        blocks = markdown_to_blocks(md)
+        self.assertEqual(
+            blocks,
+            [
+                "This is **bolded** paragraph",
+                "This is another paragraph with _italic_ text and `code` here\nThis is the same paragraph on a new line",
+                "- This is a list\n- with items",
+            ],
+        )
+        
+    def test_markdown_to_blocks_multiple_extra_new_lines(self):
+        md = """
+This is **bolded** paragraph
+
+This is another paragraph with _italic_ text and `code` here
+This is the same paragraph on a new line
+
+
+
+- This is a list
+- with items
+"""
+        blocks = markdown_to_blocks(md)
+        self.assertEqual(
+            blocks,
+            [
+                "This is **bolded** paragraph",
+                "This is another paragraph with _italic_ text and `code` here\nThis is the same paragraph on a new line",
+                "- This is a list\n- with items",
+            ],
+        )
+        
+    def test_markdown_to_blocks_empty_input(self):
+        md = ""
+        blocks = markdown_to_blocks(md)
+        self.assertEqual(blocks, [])
+    
+    def test_markdown_to_blocks_leading_trailing_newlines(self):
+        md = """
+
+This is a paragraph.
+
+This is another paragraph.
+
+"""
+        blocks = markdown_to_blocks(md)
+        self.assertEqual(
+            blocks,
+            [
+                "This is a paragraph.",
+                "This is another paragraph.",
+            ],
+        )
+        
     # ---- TESTS FOR STANDALONE FUNCTION SPLIT_NODES_LINK
-    def test_split_images(self):
+    def test_split_images_multiple_nodes(self):
         node = TextNode(
             "This is text with an ![image](https://i.imgur.com/zjjcJKZ.png) and another ![second image](https://i.imgur.com/3elNhQu.png)",
             TextType.TEXT,
@@ -21,9 +102,29 @@ class TestTextNode(unittest.TestCase):
                     "second image", TextType.IMAGE, "https://i.imgur.com/3elNhQu.png"
                 ),
             ],
-            new_nodes,
-        )
-    def test_split_links(self):
+            new_nodes,)
+        
+    def test_split_images_no_images(self):
+        node = TextNode("This is text with no images", TextType.TEXT)
+        new_nodes = split_nodes_image([node])
+        self.assertEqual([node], new_nodes)  # Should return original node
+
+    def test_split_links_no_links(self):
+        node = TextNode("This is text with no links", TextType.TEXT)
+        new_nodes = split_nodes_link([node])
+        self.assertEqual([node], new_nodes)  # Should return original node
+
+    def test_split_images_only_image(self):
+        node = TextNode("![alt text](https://example.com/image.png)", TextType.TEXT)
+        new_nodes = split_nodes_image([node])
+        self.assertEqual([TextNode("alt text", TextType.IMAGE, "https://example.com/image.png")], new_nodes)
+
+    def test_split_links_only_link(self):
+        node = TextNode("[link text](https://example.com)", TextType.TEXT)
+        new_nodes = split_nodes_link([node])
+        self.assertEqual([TextNode("link text", TextType.LINK, "https://example.com")], new_nodes)
+   
+    def test_split_links_multiple_nodes(self):
         node = TextNode("This is text with a link [to boot dev](https://www.boot.dev) and [to youtube](https://www.youtube.com/@bootdotdev)", TextType.TEXT,)
         expected_nodes = [
             TextNode("This is text with a link ", TextType.TEXT),
@@ -32,6 +133,16 @@ class TestTextNode(unittest.TestCase):
             TextNode("to youtube", "link", "https://www.youtube.com/@bootdotdev")
         ]
         self.assertEqual(split_nodes_link([node]), expected_nodes)
+        
+    def test_split_links_not_eq(self):
+        node = TextNode("This is text with a link to boot dev](https://www.boot.dev) and [to youtube](https://www.youtube.com/@bootdotdev)", TextType.TEXT,)
+        expected_nodes = [
+            TextNode("This is text with a link ", TextType.TEXT),
+            TextNode("to boot dev", "link", "https://www.boot.dev"),
+            TextNode(" and ", "text",),
+            TextNode("to youtube", "link", "https://www.youtube.com/@bootdotdev")
+        ]
+        self.assertNotEqual(split_nodes_link([node]), expected_nodes)
         
             
     
